@@ -1,0 +1,71 @@
+===PROBLEM STATEMENT===
+
+In this assignment you train a recurrent neural network (RNN) to perform
+multiplication of two integers written in their binary representations.
+
+In the folder `data` you will find 3 text files, containing binary
+representations of numbers A_i, B_i, and C_i= A_i * B_i for each line i. Each
+A_i and B_i have 8 digits, while C_i has 16.
+
+The binary numbers are encoded in the files in “little endian” format, meaning
+the least significant digit is on the left. That is, given an integer A, with
+binary representation A = ...a_2 a_1 a_0, the line in the input file reads a_0
+a_1 a_2 ...
+
+There are only 10 such examples in the included dataset. Select a few of them
+and perform the multiplication by hand to understand how it works and why an
+RNN is a good model for this task.
+
+Next, you should write a python function which will generate a larger version of
+the dataset provided to you. You may assume that the factors have at most 8
+digits in their binary representation.
+
+You should take the random seed, training set size, and test set size as
+arguments to your script.
+
+When performing the multiplication, you should feed the RNN a one-hotted input
+such as
+
+a_0 b_0 a_1 b_1 a_2 b_2 ... a_n b_n 0
+
+and get a corresponding one-hotted output
+
+[junk] c_0 c_1 c_2 ... c_{2n-1} c_2n
+
+in order to keep the input and output sequences the same length.
+
+You should report the training and test losses periodically during training, and
+one final time when the training terminates. Given that multiplication is
+commutative, also compute and display the loss on both the training and test
+sets that you obtain when you swap inputs A and B.
+
+The command to run your code should be of the format in these examples:
+
+--------------------------------
+python main.py --param param/param.json --train-size 10000 --test-size 1000 --seed 1234
+--------------------------------
+
+And here is an example run of argparse --help:
+
+--------------------------------
+usage: main.py [-h] [--param param.json] [--train-size INT] [--test-size INT] [--seed INT]
+
+Trains an RNN to perform multiplication of binary integers A * B = C
+
+optional arguments:
+  -h, --help          show this help message and exit
+  --param param.json  file containing hyperparameters
+  --train-size        size of the generated training set
+  --test-size         size of the generated test set
+  --seed              random seed used for creating the datasets
+--------------------------------
+
+Finally an example json file is provided in ./param folder here with some
+suggested attributes. You are allowed to have more or less attributes as long
+as you provide a clear documentation. As usual, you should be doing some tuning
+of your hyperparameters in order to get good performance from the model.
+
+Note: The last commit to the master branch of your repository before the
+deadline is used to assess your work. (Github’s timestamp is a strict deadline
+for acceptance of your work). You should also have a documented history of
+development in your branch history.
