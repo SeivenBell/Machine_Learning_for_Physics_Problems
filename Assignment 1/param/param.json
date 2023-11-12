@@ -10,7 +10,7 @@
     "training": {
         "batch_size": 32,
         "epochs": 50,
-        "loss_function": "categorical_crossentropy"
+        "loss_function": "BCEWithLogitsLoss"
     },
     "evaluation": {
         "evaluation_frequency": 1

@@ -23,7 +23,7 @@ digits in their binary representation.
 You should take the random seed, training set size, and test set size as
 arguments to your script.
 
-When performing the multiplication, you should feed the RNN a one-hotted input
+When performing the multiplication, you should feed the RNN
 such as
 
 a_0 b_0 a_1 b_1 a_2 b_2 ... a_n b_n 0
