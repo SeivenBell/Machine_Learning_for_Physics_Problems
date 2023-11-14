@@ -38,11 +38,15 @@ class BinaryMultiplicationRNN(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+        # x should be of shape (batch_size, seq_len, input_size)
+        batch_size = x.size(0)
+        h0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device)
+        c0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device)
         out, _ = self.lstm(x, (h0, c0))
-        out = self.fc(out)
+        out = self.fc(out[:, -1, :])  # Get the output of the last time step
         return out
+
+
 
 # 3. Training
 def train(model, train_data, optimizer, criterion, num_epochs, batch_size):
@@ -55,7 +59,8 @@ def train(model, train_data, optimizer, criterion, num_epochs, batch_size):
             optimizer.zero_grad()
 
             for a, b, c in batch:
-                x = torch.tensor([[a_i, b_i] for a_i, b_i in zip(a, b)], dtype=torch.float).to(device)
+                x = torch.tensor([[a_i, b_i] for a_i, b_i in zip(a, b)], dtype=torch.float).to(device).unsqueeze(0)
+
                 y = torch.tensor(c, dtype=torch.float).to(device)
 
                 pred = model(x)
@@ -73,7 +78,7 @@ def evaluate(model, test_data, criterion):
     with torch.no_grad():
         total_loss = 0
         for a, b, c in test_data:
-            x = torch.tensor([[a_i, b_i] for a_i, b_i in zip(a, b)], dtype=torch.float).to(device)
+            x = torch.tensor([[a_i, b_i] for a_i, b_i in zip(a, b)], dtype=torch.float).to(device).unsqueeze(0)
             y = torch.tensor(c, dtype=torch.float).to(device)
             pred = model(x)
             loss = criterion(pred.view(-1), y)
