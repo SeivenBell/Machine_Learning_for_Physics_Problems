@@ -31,6 +31,7 @@ def generate_data(size, num_bits, seed):
 # 2. RNN Model Creation
 class BinaryMultiplicationRNN(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, num_layers):
+        print("output size:", output_size)
         super(BinaryMultiplicationRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -56,21 +57,33 @@ def train(model, train_data, optimizer, criterion, num_epochs, batch_size):
         total_loss = 0
         for i in range(0, len(train_data), batch_size):
             batch = train_data[i:i + batch_size]
+            
             optimizer.zero_grad()
 
+            # Prepare batch data
+            batch_x = []
+            batch_y = []
             for a, b, c in batch:
-                x = torch.tensor([[a_i, b_i] for a_i, b_i in zip(a, b)], dtype=torch.float).to(device).unsqueeze(0)
+                #x = [[a_i, b_i] for a_i, b_i in zip(a, b)]
+                x = []
+                for a_i, b_i in zip(a, b):
+                    x.append(a_i)
+                    x.append(b_i)
+            
+                batch_x.append(x)
+                batch_y.append(c)
+            x_tensor = torch.tensor(batch_x, dtype=torch.float).to(device)
+            y_tensor = torch.tensor(batch_y, dtype=torch.float).to(device)
 
-                y = torch.tensor(c, dtype=torch.float).to(device)
-
-                pred = model(x)
-                loss = criterion(pred.view(-1), y)
-                total_loss += loss.item()
-                loss.backward()
-
+            # Forward pass
+            pred = model(x_tensor)
+            loss = criterion(pred, y_tensor)
+            total_loss += loss.item()
+            loss.backward()
             optimizer.step()
         
         print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss / len(train_data):.4f}')
+
 
 # 4. Evaluation
 def evaluate(model, test_data, criterion):
@@ -78,10 +91,17 @@ def evaluate(model, test_data, criterion):
     with torch.no_grad():
         total_loss = 0
         for a, b, c in test_data:
-            x = torch.tensor([[a_i, b_i] for a_i, b_i in zip(a, b)], dtype=torch.float).to(device).unsqueeze(0)
-            y = torch.tensor(c, dtype=torch.float).to(device)
-            pred = model(x)
-            loss = criterion(pred.view(-1), y)
+            # Alternating inputs a and b
+            x = []
+            for a_i, b_i in zip(a, b):
+                x.append(a_i)
+                x.append(b_i)
+
+            x_tensor = torch.tensor([x], dtype=torch.float).to(device)  # Add batch dimension
+            y_tensor = torch.tensor(c, dtype=torch.float).to(device)
+
+            pred = model(x_tensor)
+            loss = criterion(pred, y_tensor)
             total_loss += loss.item()
     avg_loss = total_loss / len(test_data)
     return avg_loss
@@ -124,11 +144,12 @@ def main():
     # Initialize the model
     model_config = hyperparams['model']
     model = BinaryMultiplicationRNN(
-        input_size=2, 
+        input_size=1,  # Two binary digits per time step
         hidden_size=model_config['rnn_units_per_layer'], 
-        output_size=1, 
+        output_size=16,  # Output size for 8-bit multiplication is 16 bits
         num_layers=model_config['rnn_layers']
     ).to(device)
+
 
     # Training setup
     training_config = hyperparams['training']
