@@ -1,186 +1,255 @@
-import torch
+import torch as torch
 import torch.nn as nn
-import torch.optim as optim
+import torch.nn.functional as f
 import numpy as np
-import argparse
-import json
-import random
+import random as rand
+import time
+import matplotlib.pyplot as plt
 
-# Set device for PyTorch
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(device)
+#device = 'cpu'
+def runtime(t_i):
+    t_r = time.time() - t_i
+    return t_r
 
-# Function to convert integer to binary array
-def int_to_bin_array(num, num_bits):
-    return [int(digit) for digit in bin(num)[2:].zfill(num_bits)][::-1]
+def makedata(size,seed):
+    # genrates 2 random lists of  integer between 0,255 (inclusive) converts to the binary representation in little endian format
+    A = []
+    Aint = []
+    rand.seed(seed)
+    for i in range(size):
+        randa = rand.randint(0,255)
+        Aint.append(randa)
+        a = bin(randa)[2:]
+        la = len(a)
+        a =  str(0) * (8 - la) + a  #big endian format
+        a = a[::-1] #little endian format
+        A.append(a)
+    rand.seed(seed-1) #this ensures no matter size  b_i = b_i for seed N
+    B = []
+    Bint = []
+    for i in range(size):
+        randb = rand.randint(0,255)
+        Bint.append(randb)
+        b = bin(randb)[2:]
+        lb = len(b)
+        b =  str(0) * (8 - lb) + b #big endian 
+        b = b[::-1] #little endian
+        B.append(b)
+    #creates a list of the product of A_i and B_i in little endian format    
+    C = []
+    for i in range(size):
+        c = bin(Aint[i]*Bint[i])[2:]
+        lc = len(c)
+        c= str(0) * (16-lc) + c #big endian
+        c = c[::-1] #little endian
+        C.append(c)
+    
+    return A,B,C
 
-# 1. Data Generation
-def generate_data(size, num_bits, seed):
-    np.random.seed(seed)
-    max_num = 2**num_bits - 1
-    data = []
-    for _ in range(size):
-        a = np.random.randint(max_num + 1)
-        b = np.random.randint(max_num + 1)
-        c = a * b
-        a_bin = int_to_bin_array(a, num_bits)
-        b_bin = int_to_bin_array(b, num_bits)
-        c_bin = int_to_bin_array(c, 2 * num_bits)
-        data.append((a_bin, b_bin, c_bin))
-    return data
-
-# 2. RNN Model Creation
-class BinaryMultiplicationRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, num_layers):
-        print("output size:", output_size)
-        super(BinaryMultiplicationRNN, self).__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-        self.fc = nn.Linear(hidden_size, output_size)
-
-    def forward(self, x):
-        # x should be of shape (batch_size, seq_len, input_size)
-        batch_size = x.size(0)
-        h0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device)
-        c0 = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device)
-        out, _ = self.lstm(x, (h0, c0))
-        out = self.fc(out[:, -1, :])  # Get the output of the last time step
-        return out
-
-
-
-# 3. Training
-def train(model, train_data, optimizer, criterion, num_epochs, batch_size):
-    model.train()
-    for epoch in range(num_epochs):
-        random.shuffle(train_data)
-        total_loss = 0
-        for i in range(0, len(train_data), batch_size):
-            batch = train_data[i:i + batch_size]
-            
-            optimizer.zero_grad()
-
-            # Prepare batch data
-            batch_x = []
-            batch_y = []
-            for a, b, c in batch:
-                #x = [[a_i, b_i] for a_i, b_i in zip(a, b)]
-                x = []
-                for a_i, b_i in zip(a, b):
-                    x.append(a_i)
-                    x.append(b_i)
-            
-                batch_x.append(x)
-                batch_y.append(c)
-            x_tensor = torch.tensor(batch_x, dtype=torch.float).to(device)
-            y_tensor = torch.tensor(batch_y, dtype=torch.float).to(device)
-
-            # Forward pass
-            pred = model(x_tensor)
-            loss = criterion(pred, y_tensor)
-            total_loss += loss.item()
-            loss.backward()
-            optimizer.step()
+    
+def binary_to_onehot(line):
+    #turns a line of binary into a num_bits x C tensor
+    index = '01'
+    tensor = torch.zeros(len(line),len(index))
+    for count, number in enumerate(line):
+        tensor[count][index.find(number)] = 1
         
-        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss / len(train_data):.4f}')
+    return tensor
 
 
-# 4. Evaluation
-def evaluate(model, test_data, criterion):
-    model.eval()
+
+def createinput(l1,l2,index_size):
+     # creates a tensor holding the lines of binary from to inputs
+     # in size N x L x H
+    listAB =[]
+    tensor = tensor = torch.zeros(len(l1),2*len(l1[0])+1,index_size)
+    for count, value in enumerate(l1):
+        element = value+l2[count] + '0'
+        listAB.append(element)
+    for count, value in enumerate(listAB):
+        line = binary_to_onehot(value)
+        tensor[count] = line
+        
+    return tensor
+    
+
+def createtargets(list1,index_size):
+    # output is in shape N X C X 16 
+    targetsOH = torch.zeros(len(list1),index_size, len(list1[0]) + 1)
+   
+    
+    for count, value in enumerate(list1):
+        
+        value = '0' + value
+        line = binary_to_onehot(value)
+        line = line.transpose(0,1)
+        targetsOH[count] = line
+            
+    
+    return targetsOH       
+
+
+def batch(inputs, targets,  batchsize):
+    #inputs of size N x L X H 
+    #Targets in size N X 1 X L
+    num_samples = inputs.size(0) 
+    
+    num_batches = int((num_samples - (num_samples%batchsize))/batchsize)
+    
+    
+    in_batches = inputs.tensor_split(num_batches)
+        
+        
+    target_batches = targets.tensor_split(num_batches)
+        
+    return in_batches, target_batches, num_batches
+        
+        
+class RNN(nn.Module):
+    def __init__(self, input_dim, hidden_dim, num_layers, output_dim):
+        super(RNN, self).__init__()
+        
+        self.num_layers = num_layers
+        self.hidden_dim = hidden_dim
+        
+        self.rnn = nn.RNN(input_dim, hidden_dim, num_layers, batch_first = True)#, dropout = 0.3)
+        
+        self.fc = nn.Linear(hidden_dim, output_dim)
+        
+        
+    def forward(self, inputs):
+        
+        #one time step
+        outputs ,_ = self.rnn(inputs)
+        
+        #outputs1 = outputs.reshape(outputs.shape[0], -1)  
+        outputsfinal = self.fc(outputs)
+        return outputsfinal.transpose(1,2)
+    
+    def reset(self):
+        self.rnn.reset_parameters()
+        self.fc.reset_parameters()
+    
+        
+criterion = nn.MSELoss()
+
+t0 = time.time()
+Atr,Btr,Ctr = makedata(10000,5874)
+Ate, Bte, Cte = makedata(1000,6456)
+print(runtime(t0))
+ABtr = createinput(Atr,Btr,2).to(device)
+Ctr = createtargets(Ctr,2)
+Ctr = Ctr.to(device)
+
+ABte = createinput(Ate,Bte,2).to(device)
+Cte = createtargets(Cte,2)
+Cte = Cte.to(device)
+print(runtime(t0))
+
+t = time.time()
+dim_hidden = 256
+lr = 0.001
+batch_size = 32
+x , targets, num_batches = batch(ABtr, Ctr, batch_size)
+print(runtime(t))
+model = RNN(2,dim_hidden,1,2).to(device)
+
+
+optimizer = torch.optim.Adam(model.parameters(), lr = lr)#,
+                                #alpha=0.99, 
+                                #eps=1e-08, 
+                                #weight_decay=0, 
+                                #momentum=0.9)
+#scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+def oneHotToBinary(out):
+    N , C, L = out.size()
+    pred = torch.zeros(N,L).to(device)
+    
+    for n in range(N):
+        m = torch.argmax(out[n], dim = 0)
+        pred[n] = m 
+    return pred
+print(targets[0].size())
+print(x[0].size())
+
+
+
+
+loss_vals = []
+test_loss_vals = []
+num_epochs = 25
+display_epochs = 25
+t0 = time.time()
+print(''*85)
+
+for epoch in range(num_epochs):
+
+    epoch_loss = 0
+    pred_list = []
+    truevalues = []
+
+    for batch_num in range(num_batches):
+        out = model.forward((x[batch_num]))
+        loss = criterion(out, (targets[batch_num]))
+        epoch_loss += loss.item()
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.25)
+
+        prediction = oneHotToBinary(f.softmax(out, dim=1)).type(torch.LongTensor).to(device)
+        pred_list.append(prediction)
+        truevalues.append(oneHotToBinary(targets[batch_num]).type(torch.LongTensor).to(device))
+
+    epoch_loss /= num_batches
+    loss_vals.append(epoch_loss)
+
     with torch.no_grad():
-        total_loss = 0
-        for a, b, c in test_data:
-            # Alternating inputs a and b
-            x = []
-            for a_i, b_i in zip(a, b):
-                x.append(a_i)
-                x.append(b_i)
+        outte = model.forward(ABte)
+        test_loss = criterion(outte, Cte)
+        test_loss_vals.append(test_loss.item())
 
-            x_tensor = torch.tensor([x], dtype=torch.float).to(device)  # Add batch dimension
-            y_tensor = torch.tensor(c, dtype=torch.float).to(device)
+        test_preds = oneHotToBinary(f.softmax(outte, dim=1)).type(torch.LongTensor).to(device)
+        truetestvalues = oneHotToBinary(Cte).type(torch.LongTensor).to(device)
 
-            pred = model(x_tensor)
-            loss = criterion(pred, y_tensor)
-            total_loss += loss.item()
-    avg_loss = total_loss / len(test_data)
-    return avg_loss
+    if (epoch+1) % display_epochs == 0:
+        trcount = 0
+        trcorrect = 0
+        
+        for n in range(len(targets)):
+            for k in range(batch_size):
+                for l in range(len(pred_list[n][k])-1):
+                    trcount += 1 
+                    if pred_list[n][k][l+1] == truevalues[n][k][l+1]:
+                        trcorrect  += 1
+        tecount = 0
+        tecorrect = 0
+        
+        for n in range(test_preds.size(0)):
+            for k in range(test_preds.size(1)-1):
+            
+                tecount += 1 
+                if test_preds[n][k+1] == truetestvalues[n][k+1]:
+                        tecorrect  += 1
+        percent = (trcorrect/trcount)*100
+        percent_test = (tecorrect/tecount)*100
+        t = runtime(t0)
+        
+        print('Epoch [{}/{}]\tTrain Loss:{:.4f}\tPercent correct {:.2f} % '.format(epoch+1, num_epochs, loss.item(),percent))
+        print('Epoch [{}/{}]\tTest Loss:{:.4f}\tPercent correct {:.2f} %\tTotal time: {:.2f} mins'.format(epoch+1, num_epochs, test_loss.item(),percent_test,t/60))
+        print('_'*85 )
+   # loss_vals.append(loss.item())
 
-# 5. Loss Calculation with Swapped Inputs
-def loss_with_swapped_inputs(model, data, criterion):
-    model.eval()
-    with torch.no_grad():
-        total_loss = 0
-        for a, b, c in data:
-            x = torch.tensor([[b_i, a_i] for a_i, b_i in zip(a, b)], dtype=torch.float).to(device)
-            y = torch.tensor(c, dtype=torch.float).to(device)
-            pred = model(x)
-            loss = criterion(pred.view(-1), y)
-            total_loss += loss.item()
-    avg_loss = total_loss / len(data)
-    return avg_loss
-
-# 6. Argument Parsing
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='Train an RNN for binary integer multiplication')
-    parser.add_argument('--param', type=str, help='file containing hyperparameters', required=True)
-    parser.add_argument('--train-size', type=int, help='size of the generated training set', required=True)
-    parser.add_argument('--test-size', type=int, help='size of the generated test set', required=True)
-    parser.add_argument('--seed', type=int, help='random seed used for creating the datasets', required=True)
-    return parser.parse_args()
-
-# 7. Reporting and Main Function
-def main():
-    args = parse_arguments()
     
-    # Load hyperparameters from the JSON file
-    with open(args.param, 'r') as f:
-        hyperparams = json.load(f)
+plt.plot(range(num_epochs), loss_vals, label='Train')
+plt.plot(range(num_epochs), test_loss_vals, label='Test')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend(loc='best')
+plt.show()
     
-    # Generate data
-    train_data = generate_data(args.train_size, hyperparams['data']['max_digits'], args.seed)
-    test_data = generate_data(args.test_size, hyperparams['data']['max_digits'], args.seed)
-    
-    # Initialize the model
-    model_config = hyperparams['model']
-    model = BinaryMultiplicationRNN(
-        input_size=1,  # Two binary digits per time step
-        hidden_size=model_config['rnn_units_per_layer'], 
-        output_size=16,  # Output size for 8-bit multiplication is 16 bits
-        num_layers=model_config['rnn_layers']
-    ).to(device)
-
-
-    # Training setup
-    training_config = hyperparams['training']
-    if model_config['optimizer'].lower() == 'adam':
-        optimizer = optim.Adam(model.parameters(), lr=model_config['learning_rate'])
-    else:
-        raise ValueError("Unsupported optimizer type provided.")
-
-    if training_config['loss_function'].lower() == 'bcewithlogitsloss':
-        criterion = nn.BCEWithLogitsLoss()
-    else:
-        raise ValueError("Unsupported loss function provided.")
-
-    # Train the model
-    train(
-        model, 
-        train_data, 
-        optimizer, 
-        criterion, 
-        training_config['epochs'], 
-        training_config['batch_size']
-    )
-
-    # Evaluate the model
-    eval_loss = evaluate(model, test_data, criterion)
-    print(f'Evaluation Loss: {eval_loss:.4f}')
-
-    # Calculate loss with swapped inputs
-    swap_loss = loss_with_swapped_inputs(model, test_data, criterion)
-    print(f'Loss with Swapped Inputs: {swap_loss:.4f}')
-
-if __name__ == '__main__':
-    main()
 
