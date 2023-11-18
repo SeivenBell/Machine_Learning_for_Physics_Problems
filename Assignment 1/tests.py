@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as f
 import numpy as np
 import random as rand
+import argparse
+import json
 import time
 import matplotlib.pyplot as plt
 
@@ -75,18 +77,6 @@ def createinput(l1,l2,index_size):
         
     return tensor
     
-'''def createtargets(list1,index_size):
-    # output is in shape N X C X 16 
-    targetsOH = torch.zeros(len(list1),index_size, len(list1[0]) + 1)
-    for N,element in enumerate(list1):
-        string = '0'+ element
-        for index, digit in enumerate(list1[N]):
-            line = binary_to_onehot(string)
-            line = line.transpose(0,1)
-            targetsOH[N] = line
-            
-    
-    return targetsOH'''
 
 def createtargets(list1,index_size):
     # output is in shape N X C X 16 
@@ -145,10 +135,6 @@ class RNN(nn.Module):
         self.rnn.reset_parameters()
         self.fc.reset_parameters()
     
-    '''def hidden(self,batch_size):
-    #initialize hidden state
-        h0 = torch.zeros(self.num_layers,inputs.size(0), self.hidden_dim)
-        return h0'''
         
 criterion = nn.MSELoss()
 
@@ -156,10 +142,12 @@ t0 = time.time()
 Atr,Btr,Ctr = makedata(10000,5874)
 Ate, Bte, Cte = makedata(1000,6456)
 print(runtime(t0))
+#ABte = createinput(Bte,Ate,2).to(device)
 ABtr = createinput(Atr,Btr,2).to(device)
 Ctr = createtargets(Ctr,2)
 Ctr = Ctr.to(device)
 
+#ABte = createinput(Bte,Ate,2).to(device)
 ABte = createinput(Ate,Bte,2).to(device)
 Cte = createtargets(Cte,2)
 Cte = Cte.to(device)
@@ -167,19 +155,16 @@ print(runtime(t0))
 
 t = time.time()
 dim_hidden = 256
-lr = 0.001
+lr = 0.0005
 batch_size = 32
 x , targets, num_batches = batch(ABtr, Ctr, batch_size)
 print(runtime(t))
+
 model = RNN(2,dim_hidden,1,2).to(device)
 
 
-optimizer = torch.optim.Adam(model.parameters(), lr = lr)#,
-                                #alpha=0.99, 
-                                #eps=1e-08, 
-                                #weight_decay=0, 
-                                #momentum=0.9)
-#scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+optimizer = torch.optim.Adam(model.parameters(), lr = lr)
+
 def oneHotToBinary(out):
     N , C, L = out.size()
     pred = torch.zeros(N,L).to(device)
@@ -192,12 +177,12 @@ print(targets[0].size())
 print(x[0].size())
 
 
-
+#####################################################################################################################
 
 loss_vals = []
 test_loss_vals = []
-num_epochs = 25
-display_epochs = 25
+num_epochs = 30
+display_epochs = 1
 t0 = time.time()
 print(''*85)
 
@@ -260,7 +245,8 @@ for epoch in range(num_epochs):
         print('_'*85 )
    # loss_vals.append(loss.item())
 
-    
+
+
 plt.plot(range(num_epochs), loss_vals, label='Train')
 plt.plot(range(num_epochs), test_loss_vals, label='Test')
 plt.xlabel('Epoch')
