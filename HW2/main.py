@@ -95,3 +95,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+# python main.py data/in.txt --epochs 100 --learning_rate 0.01
