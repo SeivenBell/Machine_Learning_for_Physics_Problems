@@ -1,99 +1,196 @@
+import matplotlib.pyplot as plt
 import numpy as np
-import argparse
+import numpy.random as rand
+import time
 
-# === Data Loader Module ===
-# This function loads the data from a file and processes it into a usable format.
-def load_data(file_path):
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
 
-    # Convert '+' to 1 and '-' to -1, as per the Ising model representation
-    data = [[1 if spin == '+' else -1 for spin in line.strip()] for line in lines]
-    size = len(data[0])  # Determine the size of the Ising chain from the first row
-    return data, size
-
-# === Boltzmann Machine Module ===
-# This class represents the Fully Visible Boltzmann Machine, specific to the Ising model.
-class FullyVisibleBoltzmannMachine:
-    def __init__(self, size):
-        # Initialize the couplers randomly. They connect adjacent spins in the 1D chain.
-        self.size = size
-        self.couplers = {(i, (i + 1) % size): np.random.choice([-1, 1]) for i in range(size)}
-
-    def train_step(self, data, learning_rate):
-        # Calculate gradients for the couplers based on the training data.
-        gradients = {key: 0 for key in self.couplers.keys()}
-        for spin_config in data:
-            for i in range(self.size):
-                j = (i + 1) % self.size
-                gradients[(i, j)] += spin_config[i] * spin_config[j]
-
-        # Update the couplers using the calculated gradients and learning rate.
-        for key in gradients:
-            gradients[key] /= len(data)
-            self.couplers[key] += learning_rate * gradients[key]
-
-    def calculate_kl_divergence(self, data):
-        # Calculate the Kullback-Leibler divergence to measure model performance.
-        empirical_prob = 1.0 / len(data)
-        kl_divergence = 0
-        for spin_config in data:
-            model_prob = self._calculate_model_probability(spin_config)
-            kl_divergence += model_prob * np.log(model_prob / empirical_prob)
-        return kl_divergence / len(data)
-
-    def _calculate_model_probability(self, spin_config):
-        # Helper function to calculate the probability distribution of the model.
-        energy = -sum(self.couplers[(i, (i + 1) % self.size)] * spin_config[i] * spin_config[(i + 1) % self.size] for i in range(self.size))
-        partition_function = self._calculate_partition_function()
-        return np.exp(-energy) / partition_function
+def dataimporter(file):
+    data = np.loadtxt(file, dtype=str)
+    N = len(data[0])
+    array = np.zeros([len(data), N], dtype=int)
     
-    def _calculate_partition_function(self):
-        # This function calculates the partition function by considering all possible spin configurations.
-        # For large systems, this computation can be very intensive.
-        all_configs = np.array(np.meshgrid(*[[1, -1] for _ in range(self.size)])).T.reshape(-1, self.size)
-        energies = [-sum(self.couplers[(i, (i + 1) % self.size)] * config[i] * config[(i + 1) % self.size] for i in range(self.size)) for config in all_configs]
-        return np.sum(np.exp(-np.array(energies)))
+    for i, row in enumerate(data):
+        array[i] = [1 if spin == '+' else -1 for spin in row]
+    return array
 
-# === Training Module ===
-# This function manages the training process of the Boltzmann Machine.
-def train_model(boltzmann_machine, training_data, epochs, learning_rate, verbose):
-    for epoch in range(epochs):
-        boltzmann_machine.train_step(training_data, learning_rate)
 
-        # If verbose, print the KL divergence for each epoch to track performance.
+def Partition_func(data,beta = 1, ones = True):
+    M,N = data.shape   
+    if ones:
+        J = np.ones(N)
+        
+    else:
+        J = rand.choice([-1,1], size = N) #initialize random couplers
+    Z = np.power(2,N)*np.power(np.cosh(-beta),N-1)
+    return Z, J
+
+
+def Probability(data, Z, J, beta=1):
+    """
+    Calculate the probability distribution of data configurations.
+
+    Args:
+        data (numpy.ndarray): Input data.
+        Z (float): Partition function.
+        J (numpy.ndarray): Coupling matrix.
+        beta (float, optional): Inverse temperature parameter. Default is 1.
+
+    Returns:
+        list: A list containing the probabilities of each data configuration.
+    """
+    M, N = data.shape
+    probabilities = []
+
+    for m in range(M):
+        En = 0
+
+        for n in range(N - 1):
+            En += -J[n] * data[m, n] * data[m, n + 1]
+
+        En += -J[N - 1] * data[m, -1] * data[m, 0]
+
+        Pn = np.exp(-beta * En) / Z
+        probabilities.append(Pn)
+
+    return probabilities
+
+
+
+
+    
+def init_J(N):
+        J = rand.choice([-1,1], size = N) #initialize random couplers
+        return J
+    
+def energychange(spin, j_L,J_R,spin_L,spin_R):
+        dE = 2*(j_L*spin*spin_L+J_R*spin*spin_R)
+        return dE
+    
+def MCMH(out_size, N, J, beta = 1.0, verbose = False):
+        
+        init_state = rand.choice([-1,1], size = N)
         if verbose:
-            kl_divergence = boltzmann_machine.calculate_kl_divergence(training_data)
-            print(f"Epoch {epoch}, KL Divergence: {kl_divergence}")
+            print('J:',J)
+            print('init state: ',init_state)
+        
+        accepted = np.zeros(N)
+        while (accepted.size/N) <= out_size:
+            
+            index = rand.randint(N)
+            
+            n = init_state[index]
+            
+            nleft = init_state[(index-1)%N]
+            jleft = J[(index-1)%N]
+            nright = init_state[(index+1)%N]
+            J_Right = J[index]
+            dE = energychange(n,jleft,J_Right,nleft,nright)
+            
+            if dE < 0:
+                new_state = init_state
+                new_state[index] *= -1
+                accepted = np.concatenate((accepted,new_state))
+                
+                if verbose:
+                    print('New state: {} dE: {}'.format(new_state,dE))
+            elif rand.random() < np.exp(-beta*dE):
+                new_state = init_state
+                new_state[index] *= -1
+                
+                accepted = np.concatenate((accepted,new_state))
+                if verbose:
+                    print('New state: {} dE: {}'.format(new_state,dE))
+            else:
+                pass
+        return accepted.reshape((-1,N))[1:]
 
-# === Prediction Module ===
-# This function predicts the coupler values using the trained Boltzmann Machine.
-def predict_couplers(boltzmann_machine):
-    # Return the predicted couplers as a dictionary.
-    return boltzmann_machine.couplers
 
-# === Main Module ===
-# Main function to orchestrate the data loading, training, and prediction process.
-def main():
-    parser = argparse.ArgumentParser(description="Train a FVBM on Ising Chain Data")
-    # Add arguments
-    parser.add_argument("file_path", help="Path to the training data file")
-    parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
-    parser.add_argument("--learning_rate", type=float, default=0.01, help="Learning rate for training") 
-    args = parser.parse_args()
-
-    # Load data and initialize the Boltzmann Machine.
-    training_data, size = load_data(args.file_path)
-    boltzmann_machine = FullyVisibleBoltzmannMachine(size)
-
-    # Train the model and predict couplers.
-    train_model(boltzmann_machine, training_data, epochs=args.epochs, learning_rate=args.learning_rate, verbose=True)
-    coupler_predictions = predict_couplers(boltzmann_machine)
-
-    # Output the predicted couplers.
-    print(coupler_predictions)
-
-if __name__ == "__main__":
-    main()
+def expected(data):
+    _ ,N = data.shape
+    expected = np.zeros(N)
+    for n in range(N):
+        next_n = (n + 1) % N  # Get the index of the next element, wrapping around for the last element
+        pairwise_product = data[:, n] * data[:, next_n]
+        expected[n] = np.mean(pairwise_product)
     
-# python main.py data/in.txt --epochs 100 --learning_rate 0.01
+    return expected
+
+
+
+def calculateFVBM(matrix_data, batch_sz, seed, num_iterations, scaling_factor=1, lr=0.1):
+    """
+    Function to calculate FVBM.
+    
+    :param matrix_data: Input data matrix.
+    :param batch_sz: Size of each batch.
+    :param seed: Random seed for reproducibility.
+    :param num_iterations: Number of iterations to run.
+    :param scaling_factor: Beta scaling factor, default is 1.
+    :param lr: Learning rate for the algorithm, default is 0.1.
+    :return: Tuple of J matrix and KL divergence list.
+    """
+
+    random_generator = np.random.default_rng(seed=seed)
+    total_rows, total_cols = matrix_data.shape
+    total_batches = int(total_rows / batch_sz)
+    initial_j_matrix = init_J(total_cols)
+    j_matrix = np.zeros((num_iterations + 1, total_cols))
+    j_matrix[0, :] = initial_j_matrix
+
+    # Randomize order of data
+    random_generator.shuffle(matrix_data)
+
+    # Split data into batches
+    data_batches = np.array_split(matrix_data, total_batches)
+    kl_divergences = []
+
+    for iteration in range(num_iterations):
+        current_j = j_matrix[iteration, :]
+
+        for batch_index in range(total_batches):
+            current_batch_size, _ = data_batches[batch_index].shape
+            expected_true = expected(data_batches[batch_index])
+            generated_data = MCMH(current_batch_size, total_cols, current_j)
+            expected_generated = expected(generated_data)
+
+            kl_div = np.mean(-(expected_true * current_j - expected_generated * current_j))
+            gradient = expected_true - expected_generated
+
+            updated_j = current_j + lr * gradient
+            j_matrix[iteration + 1, :] = updated_j
+
+        kl_divergences.append(kl_div)
+        print(f'Epoch {iteration + 1} of {num_iterations}')
+
+    return j_matrix, kl_divergences
+
+
+
+data = dataimporter('data/in.txt')
+t0 = time.time()
+J= np.array([-1,1,1,1])
+J_new, KL = calculateFVBM(data,100,13,100, lr = 0.1)
+
+# Refactor of the for loop for updating elements in J_new
+final_j_vector = J_new[-1]  # Extracting the last row of J_new for processing
+
+# Vectorized approach for conditionally updating elements
+final_j_vector[final_j_vector < 0] = -1
+final_j_vector[final_j_vector >= 0] = 1
+
+# Assigning the updated vector back to the last row of J_new
+J_new[-1] = final_j_vector
+
+        
+        
+print(f"Coupling  of generated data set: {J_new[-1]}")
+print(f"Coupling  of Original data set: {J}")
+print(np.array_equal(J,J_new[-1]))
+plt.plot(KL)
+plt.xlabel('Epoch')  # Label for x-axis
+plt.ylabel('KL Divergence')  # Label for y-axis
+plt.title('KL Divergence over Epochs')  # Title for the plot
+plt.show()
+
+
+
