@@ -92,11 +92,53 @@ The input data should be in a text file (e.g., in.txt) representing the spin con
 Output
 The program outputs its best guess of the correct values of all J_{i, j} in the 1-D Ising chain from which the training dataset was generated. The output is a dictionary of couplers, with keys as pairs of indices and values as the predicted coupler strengths.
 
-# Expected result: 
+## Expected result: 
 
 Coupling of Generated data set: [-1.  1.  1.  1.]
 Coupling of Original data set: [-1  1  1  1]
 True
+
+
+## Hyperparameters
+
+You can configure hyperparameters to customize the training process. Hyperparameters include batch_size, num_epochs, and lr (learning rate).
+
+To specify hyperparameters, you have two options:
+
+# Option 1: Command Line Arguments
+You can directly pass hyperparameters as command line arguments when running the script. For example:
+
+# shell
+
+# python main.py data/in.txt --batch_size 128 --num_epochs 200 --lr 0.01
+
+# Option 2: JSON Parameter File
+Alternatively, you can create a JSON parameter file to specify hyperparameters. Here's how to do it:
+
+Create a JSON file, e.g., param.json, in the project directory.
+
+Define the hyperparameters in the JSON file. For example:
+
+json
+
+{
+    "batch_size": 128,
+    "num_epochs": 200,
+    "lr": 0.01
+}
+
+When running the script, use the --param_file argument to specify the JSON parameter file:
+
+shell
+
+python main.py data/in.txt --param_file param.json
+
+# Help
+You will find this options to look for
+
+--batch_size: Set the batch size for training.
+--num_epochs: Specify the number of training epochs.
+--lr: Adjust the learning rate for training.
 
 # Requirements:
 
