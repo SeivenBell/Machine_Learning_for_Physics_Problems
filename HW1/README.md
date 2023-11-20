@@ -62,6 +62,52 @@ sh
 python main.py --help
 
 
+Usage Documentation for the Configuration File
+
+This document provides clear documentation for using the provided configuration file, which is structured as follows:
+
+json
+
+{
+    "model": {
+        "hidden_dim": 256
+    },
+    "training": {
+        "learning_rate": 0.001,
+        "batch_size": 32,
+        "num_epochs": 10
+    }
+}
+
+The configuration file contains settings for configuring a machine learning model and its training process. Below, we explain the purpose and usage of each section and its parameters.
+
+Model Configuration
+The "model" section contains parameters related to the architecture and configuration of your machine learning model.
+
+hidden_dim (integer)
+
+Purpose: This parameter sets the number of hidden dimensions in the model. It determines the size of the hidden layers in your neural network model.
+Usage: You can adjust this value according to your specific model requirements. Larger values may allow the model to capture more complex patterns but may also increase the computational cost.
+
+Training Configuration
+The "training" section contains parameters that control the training process of your machine learning model.
+
+learning_rate (float)
+
+Purpose: This parameter sets the learning rate for the optimizer. The learning rate controls the step size taken during gradient descent and affects how quickly your model converges during training.
+Usage: Adjust this value based on your specific task. A higher learning rate may lead to faster initial training but could result in instability or overshooting optimal solutions. Conversely, a lower learning rate may lead to more stable training but require more epochs for convergence.
+
+
+batch_size (integer)
+
+Purpose: This parameter determines the number of data samples used in each iteration (batch) during training. It affects the trade-off between training speed and memory usage.
+Usage: Choose an appropriate batch size based on your available GPU memory and dataset size. Smaller batch sizes consume less memory but may slow down training, while larger batch sizes can speed up training but require more memory.
+
+
+num_epochs (integer)
+
+Purpose: This parameter sets the number of times your model will iterate over the entire training dataset during training. It controls how many times your model learns from the entire dataset.
+Usage: Set this value based on your specific task and dataset. Training for more epochs allows the model to learn more from the data but may risk overfitting if not properly controlled.
 
 Requirements:
 
