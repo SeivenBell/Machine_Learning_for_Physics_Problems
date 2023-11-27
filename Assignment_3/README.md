@@ -48,7 +48,8 @@ ChatGPT assisted in designing the architecture of the VAE, providing explanation
 
 ## How to Run the Code
 
-Set-Up: Ensure all required libraries are installed.
+Set-Up: Ensure all required libraries are installed. 
+And make sure you are in Assignment_3 folder to run the command 
 
 Running the Script: Use the following command to run main.py:
 sh
