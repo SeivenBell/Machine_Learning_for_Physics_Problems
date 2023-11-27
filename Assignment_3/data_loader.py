@@ -24,7 +24,7 @@ def load_even_mnist_data(data_path, batch_size, test_size):
     # Load the data from the CSV file
     data = np.genfromtxt(data_path, delimiter=' ')
     print("Data loading...")
-    print(f"Inintial Data Shape: {data.shape}")
+    print(f"Initial Data Shape: {data.shape}")
     
 
     # Extract and preprocess images
