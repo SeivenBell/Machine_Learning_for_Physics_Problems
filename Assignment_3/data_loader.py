@@ -2,11 +2,29 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-def load_even_mnist_data(data_path, batch_size=64, test_size=0.2):
+def load_even_mnist_data(data_path, batch_size, test_size):
+    """
+    Loads and processes the even MNIST dataset from a CSV file.
+
+    This function reads the MNIST dataset (containing only even digits),
+    preprocesses the images, and splits the data into training and test sets.
+    The data is then converted into PyTorch DataLoader objects for easy batch processing
+    during model training.
+
+    Args:
+        data_path (str): The path to the CSV file containing the dataset.
+        batch_size (int, optional): The number of samples per batch to load. Defaults to 64.
+        test_size (float, optional): The proportion of the dataset to include in the test split. Defaults to 0.2.
+
+    Returns:
+        Tuple[DataLoader, DataLoader]: A tuple containing the training and test DataLoaders.
+
+    """
+    
     # Load the data from the CSV file
     data = np.genfromtxt(data_path, delimiter=' ')
     print("Data loading...")
-    print(data.shape)
+    print(f"Inintial Data Shape: {data.shape}")
     
 
     # Extract and preprocess images

@@ -48,8 +48,3 @@ In this example n= 100.
 
 Remark. Include a verbose mode for your program, in which iterative reports on
 loss value in provided through the training epochs.
-
-Note: The last commit to the master branch of your repository before the
-deadline is used to assess your work. (Github’s timestamp is a strict deadline
-for acceptance of your work). You should also have a documented history of
-development in your branch history.
