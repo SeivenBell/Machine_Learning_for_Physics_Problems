@@ -3,6 +3,8 @@ name: Severyn Balaniuk
 student ID: 21050967
 
 
+TO DO: create doc strings for functions
+
 Homework 1: RNN for Binary Multiplication
 What You Need to Run This
 You'll need these libraries to get my project up and running:
